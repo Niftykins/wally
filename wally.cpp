@@ -5,6 +5,8 @@
 #include <iostream>
 #include <sstream>
 
+#include <time.h>
+
 #include "PNGCodecRGB24.h"
 #include "wally.h"
 
@@ -17,8 +19,12 @@ int main(int argc, char *argv[]) {
 		//exit(0);
 	} 
 
+	time_t end, start;
+
+	time(&start);
+
 	ImageRGB24* in;
-	ImageRGB24* out;
+	ImageRGB24* bilinear;
 	string file = "head.png";
 
 	cout << "Reading from file " << file << endl;
@@ -37,22 +43,57 @@ int main(int argc, char *argv[]) {
 
 		//cout << scaledX << " " << scaledY << endl;
 
-		out = new ImageRGB24(in->width, in->height, in->depth);
+		bilinear = new ImageRGB24(scaledX, scaledY, in->depth);
 
-		//resize(in, scaledX, scaledY, out);
+		resizeBilinear(in, scaledX, scaledY, bilinear);
 
 		stringstream ss;
 		ss << scaledX << "x" << scaledY << ".png";
 		cout << "Writing to file: " << ss.str() << endl;
-		PNGCodecRGB24::writePNG(ss.str().c_str(), *out);
+		PNGCodecRGB24::writePNG(ss.str().c_str(), *bilinear);
 	}
 
+	time(&end);
+	cout << difftime(end, start) << " seconds\n";
+
 	delete in;
-	delete out;
+	delete bilinear;
 }
 
-void resize(ImageRGB24* in, int width, int height, ImageRGB24* out) {
+void resizeBilinear(ImageRGB24* in, int w2, int h2, ImageRGB24* out) {
+	RGB24 a, b, c, d;
+	int x, y, index;
+	int w = in->width, h = in->height;
+	float ratioX = ((float)(w-1))/w2;
+	float ratioY = ((float)(h-1))/h2;
+	float red, green, blue, diffX, diffY;
 
+	for(int ii = 0; ii < h2; ii++) {
+		for(int jj= 0; jj < w2; jj++) {
+			x = (int)(ratioX * jj);
+			y = (int)(ratioY * ii);
+			diffX = (ratioX * jj) - x;
+			diffY = (ratioY * ii) - y;
+
+			a = in->data[y][x];
+			b = in->data[y][x+1];
+			c = in->data[y+1][x];
+			d = in->data[y+1][x+1];
+
+            blue = (a.b)*(1-diffX)*(1-diffY) + (b.b)*(diffX)*(1-diffY) + 
+            	(c.b)*(diffY)*(1-diffX)   + (d.b)*(diffX*diffY);
+
+            green = ((a.g))*(1-diffX)*(1-diffY) + ((b.g))*(diffX)*(1-diffY) + 
+            	((c.g))*(diffY)*(1-diffX)   + ((d.g))*(diffX*diffY);
+
+            red = ((a.r))*(1-diffX)*(1-diffY) + ((b.r))*(diffX)*(1-diffY) + 
+            	((c.r))*(diffY)*(1-diffX)   + ((d.r))*(diffX*diffY);
+		
+			out->data[ii][jj].r = (int)red;
+			out->data[ii][jj].g = (int)green;
+			out->data[ii][jj].b = (int)blue;
+		}
+	}
 }
 
 /*

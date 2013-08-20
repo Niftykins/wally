@@ -1,2 +1,2 @@
 int main(int, char**);
-void resize(ImageRGB24*, int, int, ImageRGB24*);
+void resizeBilinear(ImageRGB24*, int, int, ImageRGB24*);
