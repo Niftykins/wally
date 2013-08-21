@@ -1,0 +1,9 @@
+#!/bin/bash
+if test -z "$1"
+then
+    SRC='Beach'
+else
+    SRC=$1
+fi
+
+./wally WallyHead_Template.png WallyImages/Wally_$SRC.png results/result.png

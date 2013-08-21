@@ -30,4 +30,4 @@ $(EXEC):	$(OBJS)
 		$(CC) $(DEBUG) $(OPT) $(CPPFLAGS) -c $*.cpp
 
 clean:
-		rm -f *.o *~ $(EXEC) *x*.png
+		rm -f *.o *~ $(EXEC) *x*.png results/*
