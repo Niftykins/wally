@@ -19,7 +19,7 @@ LIBS = -lpng12 -lz -lm
 
 OBJS = wally.o PNGCodecRGB24.o
 
-EXEC = kek
+EXEC = wally
 
 all:	$(EXEC)
 
