@@ -3,7 +3,6 @@
 #include <math.h>
 #include <stdexcept>
 #include <iostream>
-#include <sstream>
 
 #include <time.h>
 
@@ -43,12 +42,10 @@ int main(int argc, char *argv[]) {
 	double minX = 11, minY = 13;
 	double maxX = 35, maxY = 41;
 	double multiple = 1.1;
-	double scaledX, scaledY, avg;
-	stringstream ss;
+	int scaledX, scaledY;
 	for(double x = minX, y = minY; x < maxX, y < maxY; x *= multiple, y *= multiple) {
 		scaledX = round(x);
 		scaledY = round(y);
-		double avg = ((maxX / (double)scaledX)+(maxY / (double)scaledY))/2;
 
 		cout << "trying " << scaledX << "x" << scaledY << endl;
 
@@ -56,13 +53,9 @@ int main(int argc, char *argv[]) {
 		resizeNN(in, scaledX, scaledY, mask);
 
 		Result* result;
-		//if(scaledX == in->width && scaledY == in->height) {
-		//	result = search(src, mask, in);
-		//} else {
-			bilinear = new Image(scaledX, scaledY, 3);
-			resizeBilinear(in, scaledX, scaledY, bilinear);
-			result = search(src, mask, bilinear);
-		//}
+		bilinear = new Image(scaledX, scaledY, 3);
+		resizeBilinear(in, scaledX, scaledY, bilinear);
+		result = search(src, mask, bilinear);
 		
 		result->scaledX = scaledX;
 		result->scaledY = scaledY;
@@ -70,7 +63,6 @@ int main(int argc, char *argv[]) {
 		cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
 
 		if(lowest->difference > result->difference) {
-			//result->difference *= avg;
 			lowest = result;
 			//cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
 		}
@@ -127,7 +119,8 @@ void resizeBilinear(Image* in, int w2, int h2, Image* out) {
 	}
 }
 
-void resizeNN(Image* in, int w2, int h2, Image* out) {
+//nn resize
+void mask(Image* in, int w2, int h2, Image* out) {
 	double ratioX = in->width/(double)w2;
 	double ratioY = in->height/(double)h2;
 	int px, py;

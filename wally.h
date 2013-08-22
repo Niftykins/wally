@@ -11,6 +11,7 @@ typedef struct Result {
 int main(int, char**);
 void resizeBilinear(Image*, int, int, Image*);
 void resizeNN(Image*, int, int, Image*);
+void mask(Image*, int, int, Image*);
 void flip(Image*, Image*);
 Result* search(Image*, Image*, Image*);
 void box(Image*, int, int, int, int);
