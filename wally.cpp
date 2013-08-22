@@ -43,72 +43,44 @@ int main(int argc, char *argv[]) {
 	double minX = 11, minY = 13;
 	double maxX = 35, maxY = 41;
 	double multiple = 1.1;
-	double scaledX, scaledY;
+	double scaledX, scaledY, avg;
 	stringstream ss;
 	for(double x = minX, y = minY; x < maxX, y < maxY; x *= multiple, y *= multiple) {
 		scaledX = round(x);
 		scaledY = round(y);
+		double avg = ((maxX / (double)scaledX)+(maxY / (double)scaledY))/2;
 
 		cout << "trying " << scaledX << "x" << scaledY << endl;
-
-		bilinear = new Image(scaledX, scaledY, 3);
-		resizeBilinear(in, scaledX, scaledY, bilinear);
-
-		//ss.str(string());		
-		//ss << scaledX << "x" << scaledY << ".png";
-		//cout << "Writing to file: " << ss.str() << endl;
-		//PNGCodecRGB24::writePNG(ss.str().c_str(), *bilinear);
 
 		mask = new Image(scaledX, scaledY, 3);
 		resizeNN(in, scaledX, scaledY, mask);
 
-		Result* result = search(src, mask, bilinear);
+		Result* result;
+		//if(scaledX == in->width && scaledY == in->height) {
+		//	result = search(src, mask, in);
+		//} else {
+			bilinear = new Image(scaledX, scaledY, 3);
+			resizeBilinear(in, scaledX, scaledY, bilinear);
+			result = search(src, mask, bilinear);
+		//}
+		
 		result->scaledX = scaledX;
 		result->scaledY = scaledY;
 
-		double factorX = maxX / (double)scaledX;
-		double factorY = maxY / (double)scaledY;
-		double avg = (factorX+factorY)/2;
+		cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
 
-		//ss.str(string());
-		//ss << scaledX << "x" << scaledY << "NN.png";
-		//cout << "Writing to file: " << ss.str() << endl;
-		//PNGCodecRGB24::writePNG(ss.str().c_str(), *mask);
-
-		if(lowest->difference > result->difference*avg) {
-			result->difference *= avg;
+		if(lowest->difference > result->difference) {
+			//result->difference *= avg;
 			lowest = result;
-			cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
+			//cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
 		}
-
-
-		flip(bilinear);
-		//ss.str(string());		
-		//ss << scaledX << "x" << scaledY << "flip.png";
-		//PNGCodecRGB24::writePNG(ss.str().c_str(), *bilinear);
-
-		flip(mask);
-		//ss.str(string());
-		//ss << scaledX << "x" << scaledY << "NNflip.png";
-		//PNGCodecRGB24::writePNG(ss.str().c_str(), *mask);
-
-		Result* resultFlip = search(src, mask, bilinear);
-		resultFlip->scaledX = scaledX;
-		resultFlip->scaledY = scaledY;
-
-		if(lowest->difference > resultFlip->difference*avg) {
-			resultFlip->difference *= avg;
-			lowest = resultFlip;
-			cout << "x: " << resultFlip->x << " y: " << resultFlip->y << " " << resultFlip->difference << " width: " << scaledX << " height: " << scaledY << endl;
-		}
-
 	}
 
-	cout << "\nBest match found at: x: ";
-	cout << lowest->x << " y: " << lowest->y << " difference: " << lowest->difference << endl;
+	cout << "\nBest match: \nx: " << lowest->x << "\ny: " << lowest->y << "\ndifference: " << lowest->difference << endl << endl;
 
 	box(src, lowest->x, lowest->y, lowest->scaledX, lowest->scaledY);
 	PNGCodecRGB24::writePNG(argv[3], *src);
+	cout << "Boxed image written to " << argv[3] << endl;
 
 	time(&end);
 	cout << difftime(end, start) << " seconds\n";
@@ -175,19 +147,12 @@ void resizeNN(Image* in, int w2, int h2, Image* out) {
 	}
 }
 
-void flip(Image* in) {
-	Image* out = new Image(in->width, in->height, 3);
+void flip(Image* in, Image* out) {
 	int h = in->height, w = in->width;
 
 	for(int yy = 0; yy < h; yy++) {
 		for(int xx = 0; xx < w; xx++) {
 			out->data[yy][w-1-xx] = in->data[yy][xx]; 
-		}
-	}
-
-	for(int yy = 0; yy < h; yy++) {
-		for(int xx = 0; xx < w; xx++) {
-			in->data[yy][xx] = out->data[yy][xx]; 
 		}
 	}
 }
@@ -198,17 +163,29 @@ Result* search(Image* src, Image* mask, Image* base) {
 	result->x = -1;
 	result->y = -1;
 
+	int area = base->width * base->height;
+
+	Image* maskFlip = new Image(mask->width, mask->height, 3);
+	flip(mask, maskFlip);
+	Image* baseFlip = new Image(base->width, base->height, 3);
+	flip(base, baseFlip);
+
 	for(int yy = 0; yy < src->height - mask->height; yy++) {
 		for(int xx = 0; xx < src->width - mask->width; xx++) { //for each pixel in the src image
-			int sum = 0;
+			int sum = 0, sumFlip = 0;
 			for(int maskY = 0; maskY < mask->height; maskY++) {
 				for(int maskX = 0; maskX < mask->width; maskX++) {
 					RGB24 sp = src->data[yy+maskY][xx+maskX];
 					RGB24 mp = mask->data[maskY][maskX];
+					RGB24 mfp = mask->data[maskY][maskX];
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
 						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+					}
+					if(mfp.r == BLACK) {
+						RGB24 bfp = baseFlip->data[maskY][maskX];
+						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
 					}	
 				}
 			}
@@ -216,10 +193,20 @@ Result* search(Image* src, Image* mask, Image* base) {
 				lowest = sum;
 				result->x = xx;
 				result->y = yy;
-				result->difference = sum;
+				result->difference = sum/area;
+			}
+			if(lowest > sumFlip) {
+				lowest = sumFlip;
+				result->x = xx;
+				result->y = yy;
+				result->difference = sumFlip/area;
 			}
 		}
 	}
+
+	delete maskFlip;
+	delete baseFlip;
+
 	return result;
 }
 

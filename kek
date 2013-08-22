@@ -6,4 +6,4 @@ else
     SRC=$1
 fi
 
-./wally WallyHead_Template.png WallyImages/Wally_$SRC.png results/result.png
+./wally WallyHead_Template.png WallyImages/Wally_$SRC.png results/$SRC.png
