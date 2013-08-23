@@ -1,6 +1,6 @@
 CC = g++
 
-DEBUG = -g -pg
+DEBUG = -O3
 
 OPT = 
 #-O2 

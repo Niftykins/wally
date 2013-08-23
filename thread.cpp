@@ -32,7 +32,7 @@ void* loop(void* info) {
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 
-	cout << "x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " width: " << scaledX << " height: " << scaledY << endl;
+	cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " " << endl;
 
 	delete bilinear;
 	delete mask;
@@ -60,24 +60,20 @@ int main(int argc, char *argv[]) {
 	Result* lowest = new Result;
 	lowest->difference = 9038490;
 
-	// 11x13 to 35x41
+	// 11x13 to 35x41 // 
 	double minX = 11, minY = 13;
 	double maxX = 35, maxY = 41;
 	double multiple = 1.1;
 	int scaledX, scaledY, ii=0;
-	for(double x = minX, y = minY; x < maxX || y < maxY; x *= multiple, y *= multiple, ii++) {
+	for(double x = minX, y = minY; x < maxX && y < maxY; x *= multiple, y *= multiple, ii++) {
 		scaledX = round(x);
 		scaledY = round(y);
-
-		cout << "trying " << scaledX << "x" << scaledY << endl;
 
 		info[ii] = new Stuff;
 		info[ii]->x = scaledX;
 		info[ii]->y = scaledY;
 		
 		pthread_create(&t[ii], NULL, loop, (void*)info[ii]);
-
-		
 	}
 
 	for(int jj=0; jj<ii; jj++) {
@@ -85,7 +81,6 @@ int main(int argc, char *argv[]) {
 
 		if(lowest->difference > info[jj]->result->difference) {
 			lowest = info[jj]->result;
-			//cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
 		}
 	}
 
@@ -184,23 +179,33 @@ Result* search(Image* src, Image* mask, Image* base) {
 
 	for(int yy = 0; yy < src->height - mask->height; yy++) {
 		for(int xx = 0; xx < src->width - mask->width; xx++) { //for each pixel in the src image
-			int sum = 0, sumFlip = 0;
+			int sum = 0, sumFlip = 0, s = 0, sFlip = 0, b = 0, bFlip = 0;
 			for(int maskY = 0; maskY < mask->height; maskY++) {
-				for(int maskX = 0; maskX < mask->width; maskX++) {
+				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
 					RGB24 sp = src->data[yy+maskY][xx+maskX];
 					RGB24 mp = mask->data[maskY][maskX];
-					RGB24 mfp = mask->data[maskY][maskX];
+					RGB24 mfp = maskFlip->data[maskY][maskX];
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
-						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+						sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
+						//s += (sp.r + sp.g + sp.b);
+						//b += (bp.r + bp.g + bp.b);
 					}
 					if(mfp.r == BLACK) {
 						RGB24 bfp = baseFlip->data[maskY][maskX];
-						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
+						sumFlip += abs(sp.r-bfp.r + sp.g-bfp.g + sp.b-bfp.b);
+						//sFlip += (sp.r + sp.g + sp.b);
+						//bFlip += (bfp.r + bfp.g + bfp.b);
 					}	
 				}
+				
 			}
+			//sum = abs(s-b);
+			//sumFlip = abs(sFlip-bFlip);
+
+			//cout << sum << endl;
+
 			if(lowest > sum) {
 				lowest = sum;
 				result->x = xx;

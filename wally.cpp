@@ -170,16 +170,16 @@ Result* search(Image* src, Image* mask, Image* base) {
 				for(int maskX = 0; maskX < mask->width; maskX++) {
 					RGB24 sp = src->data[yy+maskY][xx+maskX];
 					RGB24 mp = mask->data[maskY][maskX];
-					RGB24 mfp = mask->data[maskY][maskX];
+					RGB24 mfp = maskFlip->data[maskY][maskX];
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
-						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+						sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
 					}
 					if(mfp.r == BLACK) {
 						RGB24 bfp = baseFlip->data[maskY][maskX];
-						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
-					}	
+						sumFlip += abs(sp.r-bfp.r + sp.g-bfp.g + sp.b-bfp.b);
+					}		
 				}
 			}
 			if(lowest > sum) {
