@@ -1,23 +1,22 @@
 CC = g++
 
-DEBUG = -g
+DEBUG = -g -pg
 
 OPT = 
 #-O2 
 # -D_NO_ERR_CHECK \
 #  -D_MT
 
-CPPFLAGS = ${DEBUG} ${OPT} \
-	-I./ 
+CPPFLAGS = -I ./
 
-LDFLAGS = -Wall -Wl
+LDFLAGS = -Wall
 
 
 # NOTE: ld requires dependency ordering to be in reverse!
 # -lpng for linux, -lpng12 for osx
-LIBS = -lpng12 -lz -lm 
+LIBS = -lpng12 -lz -lm -std=c++11 -lpthread -stdlib=libc++
 
-OBJS = wally.o PNGCodecRGB24.o
+OBJS = thread.o PNGCodecRGB24.o
 
 EXEC = wally
 

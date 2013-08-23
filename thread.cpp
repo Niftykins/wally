@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <pthread.h>
 #include <stdexcept>
 #include <iostream>
 
@@ -14,6 +15,29 @@
 
 using namespace std;
 
+Image* in;
+Image* src;
+
+void* loop(void* info) {
+	Stuff* r = (Stuff*)info;
+	int scaledX = r->x, scaledY = r->y;
+
+	Image* bilinear = new Image(scaledX, scaledY, 3);
+	resizeBilinear(in, scaledX, scaledY, bilinear);
+	Image* mask = new Image(scaledX, scaledY, 3);
+	createMask(in, scaledX, scaledY, mask);
+	
+	r->result = search(src, mask, bilinear);
+	
+	r->result->w = scaledX;
+	r->result->h = scaledY;
+
+	cout << "x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " width: " << scaledX << " height: " << scaledY << endl;
+
+	delete bilinear;
+	delete mask;
+}
+
 int main(int argc, char *argv[]) {
 	if(argc != 4) {
 		cout << "\nUsage:\n";
@@ -24,10 +48,8 @@ int main(int argc, char *argv[]) {
 	time_t end, start;
 	time(&start);
 
-	Image* in;
-	Image* bilinear;
-	Image* mask;
-	Image* src;
+	pthread_t t[20];
+	Stuff* info[20];
 
 	cout << "Reading from base image " << argv[1] << endl;
 	in = PNGCodecRGB24::readPNG(argv[1]);
@@ -42,28 +64,27 @@ int main(int argc, char *argv[]) {
 	double minX = 11, minY = 13;
 	double maxX = 35, maxY = 41;
 	double multiple = 1.1;
-	int scaledX, scaledY;
-	for(double x = minX, y = minY; x < maxX || y < maxY; x *= multiple, y *= multiple) {
+	int scaledX, scaledY, ii=0;
+	for(double x = minX, y = minY; x < maxX || y < maxY; x *= multiple, y *= multiple, ii++) {
 		scaledX = round(x);
 		scaledY = round(y);
 
 		cout << "trying " << scaledX << "x" << scaledY << endl;
 
-		mask = new Image(scaledX, scaledY, 3);
-		createMask(in, scaledX, scaledY, mask);
-
-		Result* result;
-		bilinear = new Image(scaledX, scaledY, 3);
-		resizeBilinear(in, scaledX, scaledY, bilinear);
-		result = search(src, mask, bilinear);
+		info[ii] = new Stuff;
+		info[ii]->x = scaledX;
+		info[ii]->y = scaledY;
 		
-		result->w = scaledX;
-		result->h = scaledY;
+		pthread_create(&t[ii], NULL, loop, (void*)info[ii]);
 
-		cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
+		
+	}
 
-		if(lowest->difference > result->difference) {
-			lowest = result;
+	for(int jj=0; jj<ii; jj++) {
+		pthread_join(t[jj], NULL);
+
+		if(lowest->difference > info[jj]->result->difference) {
+			lowest = info[jj]->result;
 			//cout << "x: " << result->x << " y: " << result->y << " " << result->difference << " width: " << scaledX << " height: " << scaledY << endl;
 		}
 	}
@@ -78,8 +99,6 @@ int main(int argc, char *argv[]) {
 	cout << difftime(end, start) << " seconds\n";
 
 	delete in;
-	delete bilinear;
-	delete mask;
 	delete src;
 }
 
