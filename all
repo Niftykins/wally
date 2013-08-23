@@ -1,0 +1,14 @@
+#!/bin/bash
+ALL=('AlienCafe' 'Arena' 'ArmedCamp' 'Ballroom' 'Battle' 'Beach' 'Carousels' 'CrowdedMall' 'Egypt' 'Expo' 'Fairground' 'Gaul' 'Goldrush' 'Market' 'Maze' 'Medieval' 'Santas' 'Skiing' 'Tents' 'Wembley');
+
+date1=$(date +%s)
+
+for i in "${ALL[@]}"
+do
+	./wally WallyHead_Template.png WallyImages/Wally_$i.png results/$i.png
+done
+
+date2=$(date +%s)
+
+DIFF=$(($date2 - $date1))
+echo "$DIFF seconds to complete all"

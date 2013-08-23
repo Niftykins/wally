@@ -137,7 +137,7 @@ void resizeBilinear(Image* in, int w2, int h2, Image* out) {
 void createMask(Image* in, int w2, int h2, Image* out) {
 	double ratioX = in->width/(double)w2;
 	double ratioY = in->height/(double)h2;
-	int px, py;
+	int px, py, sum;
 
 	for(int yy = 0; yy < h2; yy++) {
 		for(int xx = 0; xx < w2; xx++) {
@@ -146,8 +146,9 @@ void createMask(Image* in, int w2, int h2, Image* out) {
 
 			RGB24 pixel = in->data[py][px];
 
-			if((int)pixel.r != WHITE && (int)pixel.b != WHITE && (int)pixel.b != WHITE)
+			if((int)pixel.r != WHITE && (int)pixel.b != WHITE && (int)pixel.b != WHITE) {
 				pixel.r = pixel.g = pixel.b = BLACK;
+			}
 
 			out->data[yy][xx] = pixel;
 		}
@@ -172,39 +173,31 @@ Result* search(Image* src, Image* mask, Image* base) {
 
 	int area = base->width * base->height;
 
-	Image* maskFlip = new Image(mask->width, mask->height, 3);
+/*	Image* maskFlip = new Image(mask->width, mask->height, 3);
 	flip(mask, maskFlip);
 	Image* baseFlip = new Image(base->width, base->height, 3);
 	flip(base, baseFlip);
-
+*/
 	for(int yy = 0; yy < src->height - mask->height; yy++) {
 		for(int xx = 0; xx < src->width - mask->width; xx++) { //for each pixel in the src image
-			int sum = 0, sumFlip = 0, s = 0, sFlip = 0, b = 0, bFlip = 0;
+			int sum = 0, sumFlip = 0;
 			for(int maskY = 0; maskY < mask->height; maskY++) {
 				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
 					RGB24 sp = src->data[yy+maskY][xx+maskX];
 					RGB24 mp = mask->data[maskY][maskX];
-					RGB24 mfp = maskFlip->data[maskY][maskX];
+					//RGB24 mfp = maskFlip->data[maskY][maskX];
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
 						sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
-						//s += (sp.r + sp.g + sp.b);
-						//b += (bp.r + bp.g + bp.b);
 					}
-					if(mfp.r == BLACK) {
+				/*	if(mfp.r == BLACK) {
 						RGB24 bfp = baseFlip->data[maskY][maskX];
 						sumFlip += abs(sp.r-bfp.r + sp.g-bfp.g + sp.b-bfp.b);
-						//sFlip += (sp.r + sp.g + sp.b);
-						//bFlip += (bfp.r + bfp.g + bfp.b);
-					}	
+					} */	
 				}
 				
 			}
-			//sum = abs(s-b);
-			//sumFlip = abs(sFlip-bFlip);
-
-			//cout << sum << endl;
 
 			if(lowest > sum) {
 				lowest = sum;
@@ -212,17 +205,17 @@ Result* search(Image* src, Image* mask, Image* base) {
 				result->y = yy;
 				result->difference = sum/area;
 			}
-			if(lowest > sumFlip) {
+		/*	if(lowest > sumFlip) {
 				lowest = sumFlip;
 				result->x = xx;
 				result->y = yy;
 				result->difference = sumFlip/area;
-			}
+			} */
 		}
 	}
 
-	delete maskFlip;
-	delete baseFlip;
+	//delete maskFlip;
+	//delete baseFlip;
 
 	return result;
 }
