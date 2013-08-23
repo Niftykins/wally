@@ -17,18 +17,121 @@ using namespace std;
 
 Image* in;
 Image* src;
+int frog =0;
+
+void* fancy(void* kek) {
+	Fancy* f = (Fancy*)kek;
+	Image* base = f->base;
+	Image* mask = f->mask;
+	int ex=f->ex, ey=f->ey, sx=f->sx, sy=f->sy;
+	int lowest = 1337433434;
+	Result* result = new Result;
+
+	int area = base->width * base->height;
+
+	//cout << "f: " << ex-mask->width << " s: " << sx << endl;
+	//cout << "fs: " << ey-mask->height << " s: " << sy << endl;
+
+	Image* maskFlip = new Image(mask->width, mask->height, 3);
+	flip(mask, maskFlip);
+	Image* baseFlip = new Image(base->width, base->height, 3);
+	flip(base, baseFlip);
+
+	for(int yy=sy; yy < ey - mask->height; yy++) {
+		for(int xx=sx; xx < ex - mask->width; xx++) {
+			int sum = 0, sumFlip = 0;
+			for(int maskY = 0; maskY < mask->height; maskY++) {
+				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
+					RGB24 sp = src->data[yy+maskY][xx+maskX];
+					RGB24 mp = mask->data[maskY][maskX];
+					RGB24 mfp = maskFlip->data[maskY][maskX];
+
+					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
+						RGB24 bp = base->data[maskY][maskX];
+						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+					}
+					if(mfp.r == BLACK) {
+						RGB24 bfp = baseFlip->data[maskY][maskX];
+						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
+					}
+				}
+				
+			}
+
+			if(lowest > sum) {
+				lowest = sum;
+				result->x = xx;
+				result->y = yy;
+				result->difference = sum/area;
+			}
+			if(lowest > sumFlip) {
+				lowest = sumFlip;
+				result->x = xx;
+				result->y = yy;
+				result->difference = sumFlip/area;
+			}
+		}
+	}
+
+	delete maskFlip;
+	delete baseFlip;
+
+	f->result = result;
+}
 
 void* loop(void* info) {
 	Stuff* r = (Stuff*)info;
 	int scaledX = r->x, scaledY = r->y;
+	pthread_t t[3];
+	Fancy* f[3];
+	int lowest = 1337433434;
 
 	Image* bilinear = new Image(scaledX, scaledY, 3);
 	resizeBilinear(in, scaledX, scaledY, bilinear);
 	Image* mask = new Image(scaledX, scaledY, 3);
 	createMask(in, scaledX, scaledY, mask);
 	
-	r->result = search(src, mask, bilinear);
-	
+	//r->result = search(src, mask, bilinear);
+
+	f[0] = new Fancy;
+	f[0]->base = bilinear;
+	f[0]->mask = mask;
+	f[0]->sx = 0;
+	f[0]->sy = 0;
+	f[0]->ex = src->width/2;
+	f[0]->ey = src->height/2;
+
+	f[1] = new Fancy;
+	f[1]->base = bilinear;
+	f[1]->mask = mask;
+	f[1]->sx = src->width/2+1;
+	f[1]->sy = 0;
+	f[1]->ex = src->width;
+	f[1]->ey = src->height;
+
+	f[2] = new Fancy;
+	f[2]->base = bilinear;
+	f[2]->mask = mask;
+	f[2]->sx = src->width/2 - mask->width/2-1;
+	f[2]->sy = 0;
+	f[2]->ex = src->width/2 + mask->width/2+1;
+	f[2]->ey = src->height;
+
+	pthread_create(&t[0], NULL, fancy, (void*)f[0]);
+	pthread_create(&t[1], NULL, fancy, (void*)f[1]);
+	pthread_create(&t[2], NULL, fancy, (void*)f[2]);
+	pthread_join(t[0], NULL);
+	pthread_join(t[1], NULL);
+	pthread_join(t[2], NULL);
+
+	for(int ii = 0; ii < 3; ii++) {
+		//cout << f[ii]->result->difference << endl;
+		if (lowest > f[ii]->result->difference) {
+			lowest = f[ii]->result->difference;
+			r->result = f[ii]->result;
+		}
+	}
+	//r->result = f->result;
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 
@@ -92,6 +195,7 @@ int main(int argc, char *argv[]) {
 
 	time(&end);
 	cout << difftime(end, start) << " seconds\n";
+	cout << "frog: " <<frog << endl;
 
 	delete in;
 	delete src;
@@ -165,6 +269,8 @@ void flip(Image* in, Image* out) {
 	}
 }
 
+
+
 Result* search(Image* src, Image* mask, Image* base) {
 	int lowest = 1337433434;
 	Result* result = new Result;
@@ -173,11 +279,6 @@ Result* search(Image* src, Image* mask, Image* base) {
 
 	int area = base->width * base->height;
 
-	Image* maskFlip = new Image(mask->width, mask->height, 3);
-	flip(mask, maskFlip);
-	Image* baseFlip = new Image(base->width, base->height, 3);
-	flip(base, baseFlip);
-
 	for(int yy = 0; yy < src->height - mask->height; yy++) {
 		for(int xx = 0; xx < src->width - mask->width; xx++) { //for each pixel in the src image
 			int sum = 0, sumFlip = 0;
@@ -185,18 +286,11 @@ Result* search(Image* src, Image* mask, Image* base) {
 				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
 					RGB24 sp = src->data[yy+maskY][xx+maskX];
 					RGB24 mp = mask->data[maskY][maskX];
-					RGB24 mfp = maskFlip->data[maskY][maskX];
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
-						//sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
-						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+						sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
 					}
-					if(mfp.r == BLACK) {
-						RGB24 bfp = baseFlip->data[maskY][maskX];
-						//sumFlip += abs(sp.r-bfp.r + sp.g-bfp.g + sp.b-bfp.b);
-						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
-					} 	
 				}
 				
 			}
@@ -207,17 +301,8 @@ Result* search(Image* src, Image* mask, Image* base) {
 				result->y = yy;
 				result->difference = sum/area;
 			}
-			if(lowest > sumFlip) {
-				lowest = sumFlip;
-				result->x = xx;
-				result->y = yy;
-				result->difference = sumFlip/area;
-			} 
 		}
 	}
-
-	delete maskFlip;
-	delete baseFlip;
 
 	return result;
 }
