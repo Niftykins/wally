@@ -40,11 +40,15 @@ void* fancy(void* kek) {
 	for(int yy=sy; yy < ey - mask->height; yy++) {
 		for(int xx=sx; xx < ex - mask->width; xx++) {
 			int sum = 0, sumFlip = 0;
+
+			//if(xx==501 && yy==263) cout << "HERE\n";
+
 			for(int maskY = 0; maskY < mask->height; maskY++) {
 				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
 					RGB24 sp = src->data[yy+maskY][xx+maskX];
 					RGB24 mp = mask->data[maskY][maskX];
 					RGB24 mfp = maskFlip->data[maskY][maskX];
+
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
@@ -91,15 +95,13 @@ void* loop(void* info) {
 	Image* mask = new Image(scaledX, scaledY, 3);
 	createMask(in, scaledX, scaledY, mask);
 	
-	//r->result = search(src, mask, bilinear);
-
 	f[0] = new Fancy;
 	f[0]->base = bilinear;
 	f[0]->mask = mask;
 	f[0]->sx = 0;
 	f[0]->sy = 0;
 	f[0]->ex = src->width/2;
-	f[0]->ey = src->height/2;
+	f[0]->ey = src->height;
 
 	f[1] = new Fancy;
 	f[1]->base = bilinear;
@@ -112,9 +114,9 @@ void* loop(void* info) {
 	f[2] = new Fancy;
 	f[2]->base = bilinear;
 	f[2]->mask = mask;
-	f[2]->sx = src->width/2 - mask->width/2-1;
+	f[2]->sx = src->width/2 - mask->width;
 	f[2]->sy = 0;
-	f[2]->ex = src->width/2 + mask->width/2+1;
+	f[2]->ex = src->width/2 + mask->width;
 	f[2]->ey = src->height;
 
 	pthread_create(&t[0], NULL, fancy, (void*)f[0]);
@@ -131,7 +133,6 @@ void* loop(void* info) {
 			r->result = f[ii]->result;
 		}
 	}
-	//r->result = f->result;
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 

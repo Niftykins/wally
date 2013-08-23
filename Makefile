@@ -16,7 +16,7 @@ LDFLAGS = -Wall
 # -lpng for linux, -lpng12 for osx
 LIBS = -lpng12 -lz -lm -std=c++11 -lpthread -stdlib=libc++
 
-OBJS = thread.o PNGCodecRGB24.o
+OBJS = superthread.o PNGCodecRGB24.o
 
 EXEC = wally
 
