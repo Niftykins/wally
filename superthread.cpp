@@ -17,7 +17,6 @@ using namespace std;
 
 Image* in;
 Image* src;
-int frog =0;
 
 void* fancy(void* kek) {
 	Fancy* f = (Fancy*)kek;
@@ -29,7 +28,7 @@ void* fancy(void* kek) {
 
 	int area = base->width * base->height;
 
-	//cout << "f: " << ex-mask->width << " s: " << sx << endl;
+	//cout << "s: " << sx << " f: " << ex-mask->width << endl;
 	//cout << "fs: " << ey-mask->height << " s: " << sy << endl;
 
 	Image* maskFlip = new Image(mask->width, mask->height, 3);
@@ -40,8 +39,6 @@ void* fancy(void* kek) {
 	for(int yy=sy; yy < ey - mask->height; yy++) {
 		for(int xx=sx; xx < ex - mask->width; xx++) {
 			int sum = 0, sumFlip = 0;
-
-			//if(xx==501 && yy==263) cout << "HERE\n";
 
 			for(int maskY = 0; maskY < mask->height; maskY++) {
 				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
@@ -81,6 +78,8 @@ void* fancy(void* kek) {
 	delete baseFlip;
 
 	f->result = result;
+
+	return NULL;
 }
 
 void* loop(void* info) {
@@ -116,7 +115,7 @@ void* loop(void* info) {
 	f[2]->mask = mask;
 	f[2]->sx = src->width/2 - mask->width;
 	f[2]->sy = 0;
-	f[2]->ex = src->width/2 + mask->width;
+	f[2]->ex = src->width/2 + 1;
 	f[2]->ey = src->height;
 
 	pthread_create(&t[0], NULL, fancy, (void*)f[0]);
@@ -136,10 +135,12 @@ void* loop(void* info) {
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 
-	cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " " << endl;
+	cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " diff: " << r->result->difference << " " << endl;
 
 	delete bilinear;
 	delete mask;
+
+	return NULL;
 }
 
 int main(int argc, char *argv[]) {
@@ -155,10 +156,10 @@ int main(int argc, char *argv[]) {
 	pthread_t t[20];
 	Stuff* info[20];
 
-	cout << "Reading from base image " << argv[1] << endl;
+	cout << "\nReading template image " << argv[1] << endl;
 	in = PNGCodecRGB24::readPNG(argv[1]);
 
-	cout << "Reading from source image " << argv[2] <<endl;
+	cout << "Reading source image " << argv[2] <<endl<<endl;
 	src = PNGCodecRGB24::readPNG(argv[2]);
 
 	Result* lowest = new Result;
@@ -196,7 +197,6 @@ int main(int argc, char *argv[]) {
 
 	time(&end);
 	cout << difftime(end, start) << " seconds\n";
-	cout << "frog: " <<frog << endl;
 
 	delete in;
 	delete src;
@@ -268,44 +268,6 @@ void flip(Image* in, Image* out) {
 			out->data[yy][w-1-xx] = in->data[yy][xx]; 
 		}
 	}
-}
-
-
-
-Result* search(Image* src, Image* mask, Image* base) {
-	int lowest = 1337433434;
-	Result* result = new Result;
-	result->x = -1;
-	result->y = -1;
-
-	int area = base->width * base->height;
-
-	for(int yy = 0; yy < src->height - mask->height; yy++) {
-		for(int xx = 0; xx < src->width - mask->width; xx++) { //for each pixel in the src image
-			int sum = 0, sumFlip = 0;
-			for(int maskY = 0; maskY < mask->height; maskY++) {
-				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
-					RGB24 sp = src->data[yy+maskY][xx+maskX];
-					RGB24 mp = mask->data[maskY][maskX];
-
-					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
-						RGB24 bp = base->data[maskY][maskX];
-						sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
-					}
-				}
-				
-			}
-
-			if(lowest > sum) {
-				lowest = sum;
-				result->x = xx;
-				result->y = yy;
-				result->difference = sum/area;
-			}
-		}
-	}
-
-	return result;
 }
 
 void box(Image* src, int x, int y, int w, int h) {
