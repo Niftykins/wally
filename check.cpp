@@ -2,8 +2,8 @@
 #include <string.h>
 #include <math.h>
 #include <pthread.h>
-#include <stdexcept>
 #include <iostream>
+#include <iomanip>
 
 #include <time.h>
 
@@ -34,7 +34,7 @@ Stuffs* make(string n, int x, int y, int w, int h) {
 }
 
 void check(Stuffs* i) {
-	cout << "Checking -> " << i->n << " ... ";
+	cout << "Checking -> " << setw(15) << left << i->n;
 	ImageRGB24* src = PNGCodecRGB24::readPNG(("results/"+i->n+".png").c_str());
 
 	if( (int)src->data[i->y][i->x].r == 255 &&

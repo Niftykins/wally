@@ -49,11 +49,11 @@ void* fancy(void* kek) {
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
-						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+						sum += std::abs(sp.r-bp.r) + std::abs(sp.g-bp.g) + std::abs(sp.b-bp.b);
 					}
 					if(mfp.r == BLACK) {
 						RGB24 bfp = baseFlip->data[maskY][maskX];
-						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
+						sumFlip += std::abs(sp.r-bfp.r) + std::abs(sp.g-bfp.g) + std::abs(sp.b-bfp.b);
 					}
 				}
 				
@@ -85,8 +85,12 @@ void* fancy(void* kek) {
 void* loop(void* info) {
 	Stuff* r = (Stuff*)info;
 	int scaledX = r->x, scaledY = r->y;
-	pthread_t t[3];
-	Fancy* f[3];
+	int SIZE = src->width / 2;
+	int NUMBER = (src->width / SIZE)*2-1;
+
+	pthread_t t[NUMBER];
+	Fancy* f[NUMBER];
+
 	int lowest = 1337433434;
 
 	Image* bilinear = new Image(scaledX, scaledY, 3);
@@ -94,7 +98,7 @@ void* loop(void* info) {
 	Image* mask = new Image(scaledX, scaledY, 3);
 	createMask(in, scaledX, scaledY, mask);
 	
-	f[0] = new Fancy;
+/*	f[0] = new Fancy;
 	f[0]->base = bilinear;
 	f[0]->mask = mask;
 	f[0]->sx = 0;
@@ -105,7 +109,7 @@ void* loop(void* info) {
 	f[1] = new Fancy;
 	f[1]->base = bilinear;
 	f[1]->mask = mask;
-	f[1]->sx = src->width/2+1;
+	f[1]->sx = src->width/2;
 	f[1]->sy = 0;
 	f[1]->ex = src->width;
 	f[1]->ey = src->height;
@@ -117,25 +121,44 @@ void* loop(void* info) {
 	f[2]->sy = 0;
 	f[2]->ex = src->width/2 + 1;
 	f[2]->ey = src->height;
+*/
+	for(int ii = 0, jj=0; ii < NUMBER; ii += 2, jj++) {
+		f[ii] = new Fancy;
+		f[ii]->base = bilinear;
+		f[ii]->mask = mask;
+		f[ii]->sx =	SIZE * jj; 
+		f[ii]->sy = 0;
+		f[ii]->ex = SIZE * (jj+1);
+		f[ii]->ey = src->height;
 
-	pthread_create(&t[0], NULL, fancy, (void*)f[0]);
-	pthread_create(&t[1], NULL, fancy, (void*)f[1]);
-	pthread_create(&t[2], NULL, fancy, (void*)f[2]);
-	pthread_join(t[0], NULL);
-	pthread_join(t[1], NULL);
-	pthread_join(t[2], NULL);
+		pthread_create(&t[ii], NULL, fancy, (void*)f[ii]);
 
-	for(int ii = 0; ii < 3; ii++) {
-		//cout << f[ii]->result->difference << endl;
+		f[ii+1] = new Fancy;
+		f[ii+1]->base = bilinear;
+		f[ii+1]->mask = mask;
+		f[ii+1]->sx = SIZE * (jj+1) - mask->width; 
+		f[ii+1]->sy = 0;
+		f[ii+1]->ex = SIZE * (jj+1) + mask->width - 1;
+		f[ii+1]->ey = src->height;
+
+		pthread_create(&t[ii+1], NULL, fancy, (void*)f[ii+1]);
+	}
+
+	for(int ii = 0; ii < NUMBER; ii++) {
+		pthread_join(t[ii], NULL);
+	}
+
+	for(int ii = 0; ii < NUMBER; ii++) {
 		if (lowest > f[ii]->result->difference) {
 			lowest = f[ii]->result->difference;
 			r->result = f[ii]->result;
 		}
 	}
+
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 
-	cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " diff: " << r->result->difference << " " << endl;
+	//cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " diff: " << r->result->difference << " " << endl;
 
 	delete bilinear;
 	delete mask;
@@ -149,9 +172,6 @@ int main(int argc, char *argv[]) {
 		cout << argv[0] << " base_template.png search_image.png result.png \n\n";
 		exit(0);
 	} 
-
-	time_t end, start;
-	time(&start);
 
 	pthread_t t[20];
 	Stuff* info[20];
@@ -170,6 +190,10 @@ int main(int argc, char *argv[]) {
 	double maxX = 35, maxY = 41;
 	double multiple = 1.1;
 	int scaledX, scaledY, ii=0;
+
+	time_t end, start;
+	time(&start);
+
 	for(double x = minX, y = minY; x < maxX && y < maxY; x *= multiple, y *= multiple, ii++) {
 		scaledX = round(x);
 		scaledY = round(y);
@@ -189,13 +213,15 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	time(&end);
+
 	cout << "\nBest match: \nx: " << lowest->x << "\ny: " << lowest->y << "\ndifference: " << lowest->difference << endl << endl;
 
 	box(src, lowest->x, lowest->y, lowest->w, lowest->h);
 	PNGCodecRGB24::writePNG(argv[3], *src);
 	cout << "Boxed image written to " << argv[3] << endl;
 
-	time(&end);
+	
 	cout << difftime(end, start) << " seconds\n";
 
 	delete in;

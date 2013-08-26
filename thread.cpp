@@ -36,6 +36,8 @@ void* loop(void* info) {
 
 	delete bilinear;
 	delete mask;
+
+	return NULL;
 }
 
 int main(int argc, char *argv[]) {
@@ -44,9 +46,6 @@ int main(int argc, char *argv[]) {
 		cout << argv[0] << " base_template.png search_image.png result.png \n\n";
 		exit(0);
 	} 
-
-	time_t end, start;
-	time(&start);
 
 	pthread_t t[20];
 	Stuff* info[20];
@@ -65,6 +64,10 @@ int main(int argc, char *argv[]) {
 	double maxX = 35, maxY = 41;
 	double multiple = 1.1;
 	int scaledX, scaledY, ii=0;
+
+	time_t end, start;
+	time(&start);
+
 	for(double x = minX, y = minY; x < maxX && y < maxY; x *= multiple, y *= multiple, ii++) {
 		scaledX = round(x);
 		scaledY = round(y);
@@ -84,13 +87,14 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	time(&end);
+
 	cout << "\nBest match: \nx: " << lowest->x << "\ny: " << lowest->y << "\ndifference: " << lowest->difference << endl << endl;
 
 	box(src, lowest->x, lowest->y, lowest->w, lowest->h);
 	PNGCodecRGB24::writePNG(argv[3], *src);
 	cout << "Boxed image written to " << argv[3] << endl;
 
-	time(&end);
 	cout << difftime(end, start) << " seconds\n";
 
 	delete in;
@@ -189,13 +193,11 @@ Result* search(Image* src, Image* mask, Image* base) {
 
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
-						//sum += abs(sp.r-bp.r + sp.g-bp.g + sp.b-bp.b);
-						sum += abs(sp.r-bp.r) + abs(sp.g-bp.g) + abs(sp.b-bp.b);
+						sum += std::abs(sp.r-bp.r) + std::abs(sp.g-bp.g) + std::abs(sp.b-bp.b);
 					}
 					if(mfp.r == BLACK) {
 						RGB24 bfp = baseFlip->data[maskY][maskX];
-						//sumFlip += abs(sp.r-bfp.r + sp.g-bfp.g + sp.b-bfp.b);
-						sumFlip += abs(sp.r-bfp.r) + abs(sp.g-bfp.g) + abs(sp.b-bfp.b);
+						sumFlip += std::abs(sp.r-bfp.r) + std::abs(sp.g-bfp.g) + std::abs(sp.b-bfp.b);
 					} 	
 				}
 				
