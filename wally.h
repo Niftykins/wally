@@ -12,6 +12,8 @@ typedef struct Stuff {
 	int x;
 	int y;
 	Result* result;
+	Image* mask; //
+	Image* base; //
 } Stuff;
 
 typedef struct Fancy {

@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <stdexcept>
 #include <iostream>
+#include <complex>
 
 #include <time.h>
 
@@ -32,7 +33,7 @@ void* loop(void* info) {
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 
-	cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " " << endl;
+	//cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " " << endl;
 
 	delete bilinear;
 	delete mask;
@@ -194,9 +195,12 @@ Result* search(Image* src, Image* mask, Image* base) {
 					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
 						RGB24 bp = base->data[maskY][maskX];
 						sum += std::abs(sp.r-bp.r) + std::abs(sp.g-bp.g) + std::abs(sp.b-bp.b);
+						//sum += ((sp.r-bp.r)^((~(((sp.r-bp.r)>>31)&1))+1)) + (((sp.r-bp.r)>>31)&1) + ((sp.g-bp.g)^((~(((sp.g-bp.g)>>31)&1))+1)) + (((sp.g-bp.g)>>31)&1) + ((sp.b-bp.b)^((~(((sp.b-bp.b)>>31)&1))+1)) + (((sp.b-bp.b)>>31)&1);
+
 					}
 					if(mfp.r == BLACK) {
 						RGB24 bfp = baseFlip->data[maskY][maskX];
+						//sumFlip += ((sp.r-bfp.r)^((~(((sp.r-bfp.r)>>31)&1))+1)) + (((sp.r-bfp.r)>>31)&1) + ((sp.g-bfp.g)^((~(((sp.g-bfp.g)>>31)&1))+1)) + (((sp.g-bfp.g)>>31)&1) + ((sp.b-bfp.b)^((~(((sp.b-bfp.b)>>31)&1))+1)) + (((sp.b-bfp.b)>>31)&1);
 						sumFlip += std::abs(sp.r-bfp.r) + std::abs(sp.g-bfp.g) + std::abs(sp.b-bfp.b);
 					} 	
 				}
@@ -225,9 +229,9 @@ Result* search(Image* src, Image* mask, Image* base) {
 }
 
 void box(Image* src, int x, int y, int w, int h) {
-	for(int yy = y; yy < y+h; yy++) {
-		for(int xx = x; xx < x+w; xx++) {
-			if((xx == x || xx == x+w-1) || (yy == y || yy == y+h-1)) {
+	for(int yy = y; yy < y+h+1; yy++) {
+		for(int xx = x; xx < x+w+1; xx++) {
+			if((xx == x || xx == x+w) || (yy == y || yy == y+h)) {
 				src->data[yy][xx].r = WHITE;
 				src->data[yy][xx].g = BLACK;
 				src->data[yy][xx].b = BLACK;

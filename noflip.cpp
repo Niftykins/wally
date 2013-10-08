@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <stdexcept>
 #include <iostream>
+#include <complex>
 
 #include <time.h>
 
@@ -18,126 +19,17 @@ using namespace std;
 Image* in;
 Image* src;
 
-void* fancy(void* kek) {
-	Fancy* f = (Fancy*)kek;
-	Image* base = f->base;
-	Image* mask = f->mask;
-	int ex=f->ex, ey=f->ey, sx=f->sx, sy=f->sy;
-	int lowest = 1337433434;
-	Result* result = new Result;
-
-	int area = base->width * base->height;
-
-	//cout << "s: " << sx << " f: " << ex-mask->width << endl;
-	//cout << "fs: " << ey-mask->height << " s: " << sy << endl;
-
-	Image* maskFlip = new Image(mask->width, mask->height, 3);
-	flip(mask, maskFlip);
-	Image* baseFlip = new Image(base->width, base->height, 3);
-	flip(base, baseFlip);
-
-	for(int yy=sy; yy < ey - mask->height; yy++) {
-		for(int xx=sx; xx < ex - mask->width; xx++) {
-			int sum = 0, sumFlip = 0;
-
-			for(int maskY = 0; maskY < mask->height; maskY++) {
-				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
-					RGB24 sp = src->data[yy+maskY][xx+maskX];
-					RGB24 mp = mask->data[maskY][maskX];
-					RGB24 mfp = maskFlip->data[maskY][maskX];
-
-
-					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
-						RGB24 bp = base->data[maskY][maskX];
-						sum += std::abs(sp.r-bp.r) + std::abs(sp.g-bp.g) + std::abs(sp.b-bp.b);
-					}
-					if(mfp.r == BLACK) {
-						RGB24 bfp = baseFlip->data[maskY][maskX];
-						sumFlip += std::abs(sp.r-bfp.r) + std::abs(sp.g-bfp.g) + std::abs(sp.b-bfp.b);
-					}
-				}
-				
-			}
-
-			if(lowest > sum) {
-				lowest = sum;
-				result->x = xx;
-				result->y = yy;
-				result->difference = sum/area;
-			}
-			if(lowest > sumFlip) {
-				lowest = sumFlip;
-				result->x = xx;
-				result->y = yy;
-				result->difference = sumFlip/area;
-			}
-		}
-	}
-
-	delete maskFlip;
-	delete baseFlip;
-
-	f->result = result;
-
-	return NULL;
-}
-
 void* loop(void* info) {
 	Stuff* r = (Stuff*)info;
 	int scaledX = r->x, scaledY = r->y;
-	int SIZE = src->width / 4;
-	int NUMBER = (src->width / SIZE)*2-1;
 
-	pthread_t t[NUMBER];
-	Fancy* f[NUMBER];
-
-	int lowest = 1337433434;
-
-	Image* bilinear = new Image(scaledX, scaledY, 3);
-	resizeBilinear(in, scaledX, scaledY, bilinear);
-	Image* mask = new Image(scaledX, scaledY, 3);
-	createMask(in, scaledX, scaledY, mask);
-
-	for(int ii = 0, jj=0; ii < NUMBER; ii += 2, jj++) {
-		f[ii] = new Fancy;
-		f[ii]->base = bilinear;
-		f[ii]->mask = mask;
-		f[ii]->sx =	SIZE * jj; 
-		f[ii]->sy = 0;
-		f[ii]->ex = SIZE * (jj+1);
-		f[ii]->ey = src->height;
-
-		pthread_create(&t[ii], NULL, fancy, (void*)f[ii]);
-
-		f[ii+1] = new Fancy;
-		f[ii+1]->base = bilinear;
-		f[ii+1]->mask = mask;
-		f[ii+1]->sx = SIZE * (jj+1) - mask->width; 
-		f[ii+1]->sy = 0;
-		f[ii+1]->ex = SIZE * (jj+1) + mask->width - 1;
-		f[ii+1]->ey = src->height;
-
-		pthread_create(&t[ii+1], NULL, fancy, (void*)f[ii+1]);
-	}
-
-	for(int ii = 0; ii < NUMBER; ii++) {
-		pthread_join(t[ii], NULL);
-	}
-
-	for(int ii = 0; ii < NUMBER; ii++) {
-		if (lowest > f[ii]->result->difference) {
-			lowest = f[ii]->result->difference;
-			r->result = f[ii]->result;
-		}
-	}
-
+	
+	r->result = search(src, r->mask, r->base);
+	
 	r->result->w = scaledX;
 	r->result->h = scaledY;
 
-	//cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " diff: " << r->result->difference << " " << endl;
-
-	delete bilinear;
-	delete mask;
+	cout << scaledX << "x" << scaledY << " -> x: " << r->result->x << " y: " << r->result->y << " " << r->result->difference << " " << endl;
 
 	return NULL;
 }
@@ -149,13 +41,13 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	} 
 
-	pthread_t t[20];
-	Stuff* info[20];
+	pthread_t t[26];
+	Stuff* info[26];
 
-	cout << "\nReading template image " << argv[1] << endl;
+	cout << "Reading from base image " << argv[1] << endl;
 	in = PNGCodecRGB24::readPNG(argv[1]);
 
-	cout << "Reading source image " << argv[2] <<endl<<endl;
+	cout << "Reading from source image " << argv[2] <<endl;
 	src = PNGCodecRGB24::readPNG(argv[2]);
 
 	Result* lowest = new Result;
@@ -170,15 +62,35 @@ int main(int argc, char *argv[]) {
 	time_t end, start;
 	time(&start);
 
-	for(double x = minX, y = minY; x < maxX && y < maxY; x *= multiple, y *= multiple, ii++) {
+	for(double x = minX, y = minY; x < maxX && y < maxY; x *= multiple, y *= multiple, ii+=2) {
 		scaledX = round(x);
 		scaledY = round(y);
+
+		Image* bilinear = new Image(scaledX, scaledY, 3);
+		resizeBilinear(in, scaledX, scaledY, bilinear);
+		Image* mask = new Image(scaledX, scaledY, 3);
+		createMask(in, scaledX, scaledY, mask);
 
 		info[ii] = new Stuff;
 		info[ii]->x = scaledX;
 		info[ii]->y = scaledY;
+		info[ii]->base = bilinear;
+		info[ii]->mask = mask;
 		
 		pthread_create(&t[ii], NULL, loop, (void*)info[ii]);
+
+		Image* maskFlip = new Image(mask->width, mask->height, 3);
+		flip(mask, maskFlip);
+		Image* baseFlip = new Image(bilinear->width, bilinear->height, 3);
+		flip(bilinear, baseFlip);
+
+		info[ii+1] = new Stuff;
+		info[ii+1]->x = scaledX;
+		info[ii+1]->y = scaledY;
+		info[ii+1]->base = baseFlip;
+		info[ii+1]->mask = maskFlip;
+		
+		pthread_create(&t[ii+1], NULL, loop, (void*)info[ii+1]);
 	}
 
 	for(int jj=0; jj<ii; jj++) {
@@ -197,7 +109,6 @@ int main(int argc, char *argv[]) {
 	PNGCodecRGB24::writePNG(argv[3], *src);
 	cout << "Boxed image written to " << argv[3] << endl;
 
-	
 	cout << difftime(end, start) << " seconds\n";
 
 	delete in;
@@ -272,10 +183,48 @@ void flip(Image* in, Image* out) {
 	}
 }
 
+Result* search(Image* src, Image* mask, Image* base) {
+	int lowest = 1337433434;
+	Result* result = new Result;
+	result->x = -1;
+	result->y = -1;
+
+	int area = base->width * base->height;
+
+	for(int yy = 0; yy < src->height - mask->height; yy++) {
+		for(int xx = 0; xx < src->width - mask->width; xx++) { //for each pixel in the src image
+			int sum = 0, sumFlip = 0;
+			for(int maskY = 0; maskY < mask->height; maskY++) {
+				for(int maskX = 0; maskX < mask->width; maskX++) { //for each pixel in the mask
+					RGB24 sp = src->data[yy+maskY][xx+maskX];
+					RGB24 mp = mask->data[maskY][maskX];
+
+					if(mp.r == BLACK) { //only need to test one as they're all either 0 or 255
+						RGB24 bp = base->data[maskY][maskX];
+						sum += std::abs(sp.r-bp.r) + std::abs(sp.g-bp.g) + std::abs(sp.b-bp.b);
+						//sum += ((sp.r-bp.r)^((~(((sp.r-bp.r)>>31)&1))+1)) + (((sp.r-bp.r)>>31)&1) + ((sp.g-bp.g)^((~(((sp.g-bp.g)>>31)&1))+1)) + (((sp.g-bp.g)>>31)&1) + ((sp.b-bp.b)^((~(((sp.b-bp.b)>>31)&1))+1)) + (((sp.b-bp.b)>>31)&1);
+
+					}
+				}
+				
+			}
+
+			if(lowest > sum) {
+				lowest = sum;
+				result->x = xx;
+				result->y = yy;
+				result->difference = sum/area;
+			}
+		}
+	}
+
+	return result;
+}
+
 void box(Image* src, int x, int y, int w, int h) {
-	for(int yy = y; yy < y+h; yy++) {
-		for(int xx = x; xx < x+w; xx++) {
-			if((xx == x || xx == x+w-1) || (yy == y || yy == y+h-1)) {
+	for(int yy = y; yy < y+h+1; yy++) {
+		for(int xx = x; xx < x+w+1; xx++) {
+			if((xx == x || xx == x+w) || (yy == y || yy == y+h)) {
 				src->data[yy][xx].r = WHITE;
 				src->data[yy][xx].g = BLACK;
 				src->data[yy][xx].b = BLACK;

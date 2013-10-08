@@ -27,8 +27,8 @@ Stuffs* make(string n, int x, int y, int w, int h) {
 	r->n = n;
 	r->x = x;
 	r->y = y;
-	r->w = w;
-	r->h = h;
+	r->w = w+1;
+	r->h = h+1;
 
 	return r;
 }
